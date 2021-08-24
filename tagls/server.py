@@ -4,6 +4,7 @@ import subprocess
 import logging
 import argparse
 
+import pygls.uris
 from pygls.lsp.methods import *
 from pygls.protocol import LanguageServerProtocol
 
@@ -23,11 +24,9 @@ from pygls.capabilities import ServerCapabilitiesBuilder
 from pygls.workspace import Workspace
 from pygls.lsp.types.basic_structures import Trace
 
-from typing import List, Union, Dict, Optional
+from typing import List, Union, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
-
-RUN_TCP = True
 
 CACHE_ROOT = os.path.expanduser("~/.cache/gtags")
 os.makedirs(CACHE_ROOT, exist_ok=True)
@@ -40,20 +39,21 @@ def get_cache_dir(project_root: str):
     return cache_dir
 
 
-def print_if_tcp(*args, **kwargs):
-    if RUN_TCP:
-        print(*args, **kwargs)
+def show_message_log(log: Union[str, bytes]):
+    if isinstance(log, bytes):
+        log = log.decode("utf-8")
+    server.show_message_log(log)
 
 
 async def spawn_shell(
-    cmd: str, cwd: str, env: Optional[Dict[str, str]] = None, check_return_code = True
+    cmd: str, cwd: str, env: Optional[Dict[str, str]] = None, check_return_code=True
 ):
-    print_if_tcp(f"run cmd {cmd} at {cwd}")
+    show_message_log(f"run cmd {cmd} at {cwd}")
     p = await asyncio.create_subprocess_shell(
         cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env
     )
     stdout, stderr = await p.communicate()
-    print_if_tcp(stderr)
+    show_message_log(stderr)
     if check_return_code:
         assert p.returncode == 0, cmd
     return stdout, stderr
@@ -68,52 +68,60 @@ async def run_global(args: str, root: str, check_return_code=True):
     )
 
 
+async def run_global_and_parse_from_cscope_format_result(
+    ls: LanguageServer, args: str,
+) -> List[Tuple[str, types.Location]]:
+    assert ls.workspace.root_path is not None
+
+    stdout, stderr = await run_global(args=args, root=ls.workspace.root_path)
+    show_message_log(f"stdout: {stdout}, stderr: {stderr}")
+    stdout = stdout.strip()
+    if len(stdout) == 0:
+        return []
+    res = []
+    for stdout_line in stdout.split(b"\n"):
+        show_message_log(stdout_line)
+        filename, tag_name, lineno, _ = stdout_line.split(b" ", maxsplit=3)
+        show_message_log(f"tag_name: {tag_name}, lineno: {lineno}, filename: {filename}")
+        # pygments parser discards the leading space of code text (called line image in gtags)
+        # in some cases. So the only way to get the precise column number is get source code
+        # from local disk / language server buffer
+        tag_name, lineno, filename = (
+            tag_name.decode("utf-8"),
+            int(lineno),
+            filename.decode("utf-8"),
+        )
+        lineno -= 1
+        uri = pygls.uris.from_fs_path(filename)
+        assert uri is not None
+        line = ls.workspace.get_document(uri).lines[lineno]
+        show_message_log(f"line: {line}")
+        col_start = line.find(tag_name)
+        col_end = col_start + len(tag_name)
+        show_message_log(f"col_start: {col_start}, col_end: {col_end}")
+        pos_start = types.Position(line=lineno, character=col_start)
+        pos_end = types.Position(line=lineno, character=col_end)
+        loc = types.Location(
+            uri=pygls.uris.from_fs_path(filename),
+            range=types.Range(start=pos_start, end=pos_end),
+        )
+        res.append((tag_name, loc))
+    return res
+
+
 async def get_locations(
     ls: LanguageServer,
     params: Union[types.TextDocumentPositionParams, types.ReferenceParams],
     references: bool,
-):
-    def get_uri(path: str):
-        return f"file://{path}"
-
+) -> List[types.Location]:
     doc = ls.workspace.get_document(params.text_document.uri)
     word = doc.word_at_position(params.position)
     if references:
-        # set the format to grep so that we do not need to skip the tag_name
-        # when splitting
-        args = f"--result=grep -ar {word}"
+        args = f"--result=cscope -ar {word}"
     else:
-        args = f"--result=grep -a {word}"
+        args = f"--result=cscope -a {word}"
 
-    assert ls.workspace.root_path is not None
-
-    stdout, _ = await run_global(args=args, root=ls.workspace.root_path)
-    stdout = stdout.strip()
-    if len(stdout) == 0:
-        return []
-    locs = []
-    for stdout_line in stdout.split(b"\n"):
-        print_if_tcp(stdout_line)
-        print_if_tcp(stdout_line.split(b":", maxsplit=2))
-        filename, lineno, _ = stdout_line.split(b":", maxsplit=2)
-        print_if_tcp(lineno, filename)
-        # pygments parser discards the leading space of code text (called line image in gtags)
-        # in some cases. So the only way to get the precise column number is get source code
-        # from local disk / language server buffer
-        lineno, filename = int(lineno), filename.decode("utf-8")
-        lineno -= 1
-        line = ls.workspace.get_document(get_uri(filename)).lines[lineno]
-        print_if_tcp(f"line: {line}")
-        col_start = line.find(word)
-        col_end = col_start + len(word)
-        print_if_tcp(col_start, col_end)
-        pos_start = types.Position(line=lineno, character=col_start)
-        pos_end = types.Position(line=lineno, character=col_end)
-        loc = types.Location(
-            uri=get_uri(filename), range=types.Range(start=pos_start, end=pos_end)
-        )
-        locs.append(loc)
-    return locs
+    return list(map(lambda x: x[1], await run_global_and_parse_from_cscope_format_result(ls, args)))
 
 
 class TagLSProtocol(LanguageServerProtocol):
@@ -124,6 +132,21 @@ class TagLSProtocol(LanguageServerProtocol):
 
 
 server = LanguageServer(protocol_cls=TagLSProtocol)
+
+
+@server.feature(WORKSPACE_SYMBOL)
+async def workspace_symbol(
+    ls: LanguageServer, params: types.WorkspaceSymbolParams
+) -> List[types.SymbolInformation]:
+    assert ls.workspace.root_path is not None
+    args = f"--result=cscope -a .*{params.query}.*"
+    tag_name_and_locations = await run_global_and_parse_from_cscope_format_result(ls, args)
+    return [
+        types.SymbolInformation(
+            name=tag_name, kind=types.SymbolKind.Null, location=location
+        )
+        for tag_name, location in tag_name_and_locations
+    ]
 
 
 @server.feature(DEFINITION)
@@ -146,12 +169,12 @@ async def did_save(ls: LanguageServer, params: types.DidSaveTextDocumentParams):
     doc = ls.workspace.get_document(uri)
     assert ls.workspace.root_path is not None
     await run_global(f" --single-update {doc.path}", ls.workspace.root_path)
-    print_if_tcp("single update succeeded")
+    show_message_log("single update succeeded")
 
 
 # Copied from parent class
 def builtin_initialize(lsp: LanguageServerProtocol, params: types.InitializeParams):
-    logger.info('Language server initialized %s', params)
+    logger.info("Language server initialized %s", params)
 
     lsp._server.process_id = params.process_id
 
@@ -164,7 +187,7 @@ def builtin_initialize(lsp: LanguageServerProtocol, params: types.InitializePara
         list(lsp.fm.commands.keys()),
         lsp._server.sync_kind,
     ).build()
-    logger.debug('Server capabilities: %s', lsp.server_capabilities.dict())
+    logger.debug("Server capabilities: %s", lsp.server_capabilities.dict())
 
     root_path = params.root_path
     root_uri = params.root_uri or from_fs_path(root_path)
@@ -186,12 +209,15 @@ async def initialize(ls: LanguageServer, params: types.InitializeParams):
     assert root_path is not None
     global cache_dir
     cache_dir = get_cache_dir(root_path)
-    print_if_tcp(f'cache_dir: {cache_dir}')
+    show_message_log(f"cache_dir: {cache_dir}")
     need_generate = False
     if os.path.exists(os.path.join(cache_dir, "GTAGS")):
         _, stderr = await run_global("-u", root_path, check_return_code=False)
         if b"seems corrupted" in stderr:
-            ls.show_message("gtags files are corrupted. Generating again...", window_types.MessageType.Warning)
+            ls.show_message(
+                "gtags files are corrupted. Generating again...",
+                window_types.MessageType.Warning,
+            )
             need_generate = True
     else:
         need_generate = True
@@ -204,24 +230,5 @@ async def initialize(ls: LanguageServer, params: types.InitializeParams):
 
 @server.feature(INITIALIZED)
 def initialized(ls: LanguageServer, params: types.InitializedParams):
-    print_if_tcp("initialized")
-
-
-@server.feature(WORKSPACE_DID_CHANGE_WATCHED_FILES)
-async def did_change_watched_files(ls: LanguageServer, params: types.DidChangeWatchedFilesParams):
-    print_if_tcp(f'{params.changes[0].uri} changed!')
-
-
-parser = argparse.ArgumentParser()
-parser.add_argument("--tcp", action='store_true')
-parser.add_argument("--port", type=int, default=9528)
-
-args = parser.parse_args()
-
-RUN_TCP = args.tcp
-
-if RUN_TCP:
-    server.start_tcp("127.0.0.1", args.port)
-else:
-    server.start_io()
+    show_message_log("initialized")
 
