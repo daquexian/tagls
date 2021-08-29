@@ -9,7 +9,7 @@ setup(
     author_email='daquexian566@gmail.com',
     url='https://github.com/daquexian/tagls',
     packages=find_packages(),
-    # package_data={'': ['LICENSE']},
+    package_data={'': ['LICENSE']},
     license='Apache',
     classifiers=[
         'Development Status :: 4 - Beta',
