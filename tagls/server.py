@@ -1,14 +1,10 @@
-import os
 import asyncio
-import subprocess
 import logging
-import argparse
+import os
+import subprocess
+from typing import Dict, List, Optional, Tuple, Union
 
-import pygls.uris
-from pygls.lsp.methods import *
-from pygls.protocol import LanguageServerProtocol
-
-from pygls.server import LanguageServer
+from pygls.capabilities import ServerCapabilitiesBuilder
 from pygls.lsp import (
     CompletionItem,
     CompletionList,
@@ -16,15 +12,14 @@ from pygls.lsp import (
     CompletionParams,
     types,
 )
-
-from pygls.lsp.types import client as client_types
+from pygls.lsp.methods import *
 from pygls.lsp.types import window as window_types
-from pygls.uris import from_fs_path
-from pygls.capabilities import ServerCapabilitiesBuilder
-from pygls.workspace import Workspace
 from pygls.lsp.types.basic_structures import Trace
-
-from typing import List, Union, Dict, Optional, Tuple
+from pygls.protocol import LanguageServerProtocol
+from pygls.server import LanguageServer
+import pygls.uris
+from pygls.uris import from_fs_path
+from pygls.workspace import Workspace
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +43,14 @@ def show_message_log(log: Union[str, bytes]):
 async def spawn_shell(
     cmd: str, cwd: str, env: Optional[Dict[str, str]] = None, check_return_code=True
 ):
-    show_message_log(f"run cmd {cmd} at {cwd}")
+    show_message_log(f"run cmd {cmd} at {cwd} with env {env}")
+    if env is None:
+        env = {}
+    # NOTE: $HOME/.globalrc is one of the gtags configuration file positions.
+    # but 'HOME' environment variable doesn't exist in the shell
+    # triggered by asyncio.create_subprocess_shell unless we pass it explicitly.
+    if "HOME" not in env:
+        env["HOME"] = os.path.expanduser("~")
     p = await asyncio.create_subprocess_shell(
         cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env
     )
@@ -61,7 +63,7 @@ async def spawn_shell(
 
 async def run_global(args: str, root: str, check_return_code=True):
     return await spawn_shell(
-        cmd=f"global {args}",
+        cmd=f"global --verbose {args}",
         cwd=root,
         env={"GTAGSROOT": root, "GTAGSDBPATH": cache_dir},
         check_return_code=check_return_code,
@@ -82,7 +84,9 @@ async def run_global_and_parse_from_cscope_format_result(
     for stdout_line in stdout.split(b"\n"):
         show_message_log(stdout_line)
         filename, tag_name, lineno, _ = stdout_line.split(b" ", maxsplit=3)
-        show_message_log(f"tag_name: {tag_name}, lineno: {lineno}, filename: {filename}")
+        show_message_log(
+            f"tag_name: {tag_name}, lineno: {lineno}, filename: {filename}"
+        )
         # pygments parser discards the leading space of code text (called line image in gtags)
         # in some cases. So the only way to get the precise column number is get source code
         # from local disk / language server buffer
@@ -121,7 +125,12 @@ async def get_locations(
     else:
         args = f"--result=cscope -a {word}"
 
-    return list(map(lambda x: x[1], await run_global_and_parse_from_cscope_format_result(ls, args)))
+    return list(
+        map(
+            lambda x: x[1],
+            await run_global_and_parse_from_cscope_format_result(ls, args),
+        )
+    )
 
 
 class TagLSProtocol(LanguageServerProtocol):
@@ -140,7 +149,26 @@ async def workspace_symbol(
 ) -> List[types.SymbolInformation]:
     assert ls.workspace.root_path is not None
     args = f"--result=cscope -a .*{params.query}.*"
-    tag_name_and_locations = await run_global_and_parse_from_cscope_format_result(ls, args)
+    tag_name_and_locations = await run_global_and_parse_from_cscope_format_result(
+        ls, args
+    )
+    return [
+        types.SymbolInformation(
+            name=tag_name, kind=types.SymbolKind.Null, location=location
+        )
+        for tag_name, location in tag_name_and_locations
+    ]
+
+
+@server.feature(DOCUMENT_SYMBOL)
+async def document_symbol(
+    ls: LanguageServer, params: types.DocumentSymbolParams
+) -> List[types.SymbolInformation]:
+    assert ls.workspace.root_path is not None
+    args = f"--result=cscope -af {pygls.uris.to_fs_path(params.text_document.uri)}"
+    tag_name_and_locations = await run_global_and_parse_from_cscope_format_result(
+        ls, args
+    )
     return [
         types.SymbolInformation(
             name=tag_name, kind=types.SymbolKind.Null, location=location
@@ -168,7 +196,7 @@ async def did_save(ls: LanguageServer, params: types.DidSaveTextDocumentParams):
     uri = params.text_document.uri
     doc = ls.workspace.get_document(uri)
     assert ls.workspace.root_path is not None
-    await run_global(f" --single-update {doc.path}", ls.workspace.root_path)
+    await run_global(f"--single-update {doc.path}", ls.workspace.root_path)
     show_message_log("single update succeeded")
 
 
