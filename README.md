@@ -18,7 +18,7 @@ A language server based on gtags will give you the best of both worlds.
 
 ### Usage
 
-Install tagls and register it in your code editor. For example, in coc.nvim:
+Install tagls by `pip3 install pygls` and register it in your code editor. For example, in coc.nvim:
 
 ```json
   "languageserver": {
