@@ -1,13 +1,12 @@
 name: Publish
 
-# on:
-#   push:
-#     tags:
-#       - "v*"
+on:
+  push:
+    tags:
+      - "v*"
 on: push
 jobs:
   publish:
-    # if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -16,12 +15,13 @@ jobs:
       - name: Update version tag
         run: |
           echo "tag is ${{ github.ref }}"
+          # refs/tags/vx.y.z -> vx.y.z -> x.y.z
           echo "cutted tag is `echo ${{ github.ref }} | cut -d / -f 3 | cut -c 2-`"
           sed -i "s/0.0.0/`echo ${{ github.ref }} | cut -d / -f 3 | cut -c 2-`/" setup.py
           sed -i "s/0.0.0/`echo ${{ github.ref }} | cut -d / -f 3 | cut -c 2-`/" tagls/__init__.py
           cat setup.py
-      # - name: Publish package
-      #   uses: pypa/gh-action-pypi-publish@release/v1
-      #   with:
-      #     user: __token__
-      #     password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Publish package
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
