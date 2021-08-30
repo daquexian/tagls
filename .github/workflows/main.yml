@@ -1,5 +1,9 @@
 name: Publish
 
+on:
+  push:
+    tags:
+      - "v*"
 jobs:
   publish:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
