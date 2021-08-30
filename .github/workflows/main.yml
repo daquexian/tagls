@@ -10,7 +10,7 @@ jobs:
           echo "tag is ${{ github.ref }}"
           echo "cutted tag is `echo ${{ github.ref }} | cut -c 2-`"
           sed -i "s/0.0.0/`echo ${{ github.ref }} | cut -c 2-`/" setup.py
-          sed -i "s/0.0.0/`echo ${{ github.ref }} | cut -c 2-`/" onnxsim/__init__.py
+          sed -i "s/0.0.0/`echo ${{ github.ref }} | cut -c 2-`/" tagls/__init__.py
           cat setup.py
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
