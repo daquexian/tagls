@@ -17,8 +17,6 @@ jobs:
         run: |
           echo "tag is ${{ github.ref }}"
           echo "cutted tag is `echo ${{ github.ref }} | cut -d / -f 3 | cut -c 2-`"
-          sed -i "s/0.0.0/a.b.c/" setup.py
-          cat setup.py
           sed -i "s/0.0.0/`echo ${{ github.ref }} | cut -d / -f 3 | cut -c 2-`/" setup.py
           sed -i "s/0.0.0/`echo ${{ github.ref }} | cut -d / -f 3 | cut -c 2-`/" tagls/__init__.py
           cat setup.py
