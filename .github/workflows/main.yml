@@ -16,8 +16,8 @@ jobs:
           echo "tag is ${{ github.ref }}"
           # refs/tags/vx.y.z -> vx.y.z -> x.y.z
           echo "cutted tag is `echo ${{ github.ref }} | cut -d / -f 3 | cut -c 2-`"
-          sed -i "s/0.0.0/`echo ${{ github.ref }} | cut -d / -f 3 | cut -c 2-`/" setup.py
-          sed -i "s/0.0.0/`echo ${{ github.ref }} | cut -d / -f 3 | cut -c 2-`/" tagls/__init__.py
+          sed -i "s/unknown/`echo ${{ github.ref }} | cut -d / -f 3 | cut -c 2-`/" setup.py
+          sed -i "s/unknown/`echo ${{ github.ref }} | cut -d / -f 3 | cut -c 2-`/" tagls/__init__.py
           cat setup.py
       - name: Create sdist
         run: |
