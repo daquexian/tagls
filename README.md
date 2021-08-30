@@ -10,11 +10,11 @@ tagls is a language server based on gtags.
 
 ### Why I wrote it?
 
-Almost all editors have great support to LSP, but language servers based on semantic are not always reliable (for example, in dynamic languages like Python). 
+Almost all modern editors have great support to LSP, but language servers based on semantic are not always reliable (for example, in dynamic languages like Python). 
 
-On the other hand, the good old gtags can give more comprehensive (sometimes verbose, though) result, but it is not the first class citizen of modern code editors.
+On the other hand, the good old gtags has more comprehensive (sometimes verbose, though) result, but it is not the first class citizen of modern editors and is usually poorly supported.
 
-A language server based on gtags will give you the best of both worlds.
+A language server based on gtags can give you the best of both worlds.
 
 ### Usage
 
