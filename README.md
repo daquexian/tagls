@@ -1,5 +1,10 @@
 # tagls
 
+[![PyPI Version](https://img.shields.io/pypi/v/tagls.svg)](https://pypi.org/project/tagls/) 
+![!pyversions](https://img.shields.io/pypi/pyversions/tagls.svg) 
+![license](https://img.shields.io/pypi/l/tagls.svg) 
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/daquexian/tagls/pulls)
+
 
 tagls is a language server based on gtags.
 
