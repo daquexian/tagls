@@ -5,7 +5,7 @@ on:
     tags:
       - "v*"
 jobs:
-  publish:
+  Publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -19,6 +19,9 @@ jobs:
           sed -i "s/0.0.0/`echo ${{ github.ref }} | cut -d / -f 3 | cut -c 2-`/" setup.py
           sed -i "s/0.0.0/`echo ${{ github.ref }} | cut -d / -f 3 | cut -c 2-`/" tagls/__init__.py
           cat setup.py
+      - name: Create sdist
+        run: |
+          python3 setup.py sdist
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
