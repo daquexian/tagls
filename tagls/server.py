@@ -188,6 +188,11 @@ async def definition(
 
 
 @server.feature(REFERENCES)
+@server.feature("$tagls/references", types=(
+        None,
+        types.TextDocumentPositionParams,
+        List[types.Location],
+    ))
 async def references(
     ls: LanguageServer, params: types.ReferenceParams
 ) -> List[types.Location]:
