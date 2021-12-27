@@ -178,8 +178,11 @@ async def document_symbol(
 
 
 @server.feature(DEFINITION)
+@server.feature("$tagls/definition", types=(
+        None, types.DefinitionParams, List[types.Location]
+    ))
 async def definition(
-    ls: LanguageServer, params: types.TextDocumentPositionParams
+    ls: LanguageServer, params: types.DefinitionParams
 ) -> List[types.Location]:
     return await get_locations(ls, params, False)
 
