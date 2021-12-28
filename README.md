@@ -14,7 +14,7 @@ Almost all modern editors have great support to LSP, but language servers based 
 
 On the other hand, the good old gtags has more comprehensive (sometimes verbose, though) result, but it is not the first class citizen of modern editors and is usually poorly supported.
 
-A **language server** based on **gtags** can give us the best of both worlds.
+A language server based on gtags can give us the best of both worlds.
 
 ### Usage
 
