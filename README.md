@@ -30,10 +30,24 @@ Install tagls by `pip3 install tagls` and register it in your code editor. For e
         "cpp",
         "python"
       ],
-      "initializationOptions": {},
+      "initializationOptions": {
+        // Add this line if you only want tagls as a fallback (also see the following section)
+        // "register_official_methods": []
+        // Add this line for LeaderF support (https://github.com/daquexian/tagls/issues/1)
+        // "gtags_provider": "leaderf"
+      },
       "settings": {}
     }
   }
+```
+
+#### If you only want tagls as a fallback of clangd, pyright, ...
+
+Tagls provides LSP custom methods beginning with "$tagls/", so you can keep tagls from registering LSP official methods and communicate with tagls only by its custom methods. For example, in coc.nvim, after set "register_official_methods" to "[]", add the following lines in your .vimrc:
+
+```vimscript
+nnoremap <silent> <leader>kd :call CocLocations('tagls','$tagls/textDocument/definition')<cr>
+nnoremap <silent> <leader>kf :call CocLocations('tagls','$tagls/textDocument/references')<cr>
 ```
 
 ### Supported
@@ -42,9 +56,8 @@ Install tagls by `pip3 install tagls` and register it in your code editor. For e
 - [x] textDocument/didSave (auto update gtags tag files when a file is updated)
 - [x] textDocument/definition
 - [x] textDocument/references
-- [x] textDocument.documentSymbol
+- [x] textDocument/documentSymbol
 - [x] workspace/symbol
-
-### Todo
-
-- [ ] Per-feature configuration (e.g. disable every feature but 'textDocument/references')
+- [x] Per-feature configuration (e.g. disable every feature but "textDocument/references")
+- [x] Custom LSP methods ("$tagls/textDocument/definition" and so on)
+- [x] Integrate with [LeaderF](https://github.com/Yggdroot/LeaderF)
