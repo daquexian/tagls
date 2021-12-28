@@ -14,7 +14,7 @@ Almost all modern editors have great support to LSP, but language servers based 
 
 On the other hand, the good old gtags has more comprehensive (sometimes verbose, though) result, but it is not the first class citizen of modern editors and is usually poorly supported.
 
-A language server based on gtags can give you the best of both worlds.
+A **language server** based on **gtags** can give us the best of both worlds.
 
 ### Usage
 
@@ -43,7 +43,7 @@ Install tagls by `pip3 install tagls` and register it in your code editor. For e
 
 #### Custom LSP methods
 
-Tagls provides custom LSP methods beginning with `$tagls/`, so if you want, you can keep tagls from registering official LSP methods and communicate with tagls only by these custom methods. For example, in coc.nvim, after set `register_official_methods` to `[]`, add the following lines in your .vimrc:
+Tagls provides custom LSP methods beginning with `$tagls/`, so if you want, you can keep tagls from registering official LSP methods and communicate with tagls only by these custom methods. For example, in coc.nvim, after setting `register_official_methods` to `[]`, add the following lines in your .vimrc:
 
 ```vim
 nnoremap <silent> <leader>kd :call CocLocations('tagls','$tagls/textDocument/definition')<cr>
