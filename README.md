@@ -43,7 +43,7 @@ Install tagls by `pip3 install tagls` and register it in your code editor. For e
 
 #### Custom LSP methods
 
-Tagls provides custom LSP methods beginning with "$tagls/", so if you want, you can keep tagls from registering official LSP methods and communicate with tagls only by these custom methods. For example, in coc.nvim, after set "register_official_methods" to "[]", add the following lines in your .vimrc:
+Tagls provides custom LSP methods beginning with `$tagls/`, so if you want, you can keep tagls from registering official LSP methods and communicate with tagls only by these custom methods. For example, in coc.nvim, after set `register_official_methods` to `[]`, add the following lines in your .vimrc:
 
 ```vim
 nnoremap <silent> <leader>kd :call CocLocations('tagls','$tagls/textDocument/definition')<cr>
