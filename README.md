@@ -20,7 +20,7 @@ A language server based on gtags can give you the best of both worlds.
 
 Install tagls by `pip3 install tagls` and register it in your code editor. For example, in coc.nvim:
 
-```json
+```jsonc
   "languageserver": {
     "tagls": {
       "command": "python3",
@@ -31,9 +31,9 @@ Install tagls by `pip3 install tagls` and register it in your code editor. For e
         "python"
       ],
       "initializationOptions": {
-        // Add this line if you only want tagls as a fallback (also see the following section)
+        // Add the following line if you only want tagls as a fallback (also see "Custom LSP methods" section)
         // "register_official_methods": []
-        // Add this line for LeaderF support (https://github.com/daquexian/tagls/issues/1)
+        // Add the following line for LeaderF support (https://github.com/daquexian/tagls/issues/1)
         // "gtags_provider": "leaderf"
       },
       "settings": {}
@@ -41,11 +41,11 @@ Install tagls by `pip3 install tagls` and register it in your code editor. For e
   }
 ```
 
-#### If you only want tagls as a fallback of clangd, pyright, ...
+#### Custom LSP methods
 
-Tagls provides LSP custom methods beginning with "$tagls/", so you can keep tagls from registering LSP official methods and communicate with tagls only by its custom methods. For example, in coc.nvim, after set "register_official_methods" to "[]", add the following lines in your .vimrc:
+Tagls provides custom LSP methods beginning with "$tagls/", so if you want, you can keep tagls from registering official LSP methods and communicate with tagls only by these custom methods. For example, in coc.nvim, after set "register_official_methods" to "[]", add the following lines in your .vimrc:
 
-```vimscript
+```vim
 nnoremap <silent> <leader>kd :call CocLocations('tagls','$tagls/textDocument/definition')<cr>
 nnoremap <silent> <leader>kf :call CocLocations('tagls','$tagls/textDocument/references')<cr>
 ```
