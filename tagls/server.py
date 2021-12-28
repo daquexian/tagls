@@ -2,15 +2,12 @@ import asyncio
 import logging
 import os
 import subprocess
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pygls.capabilities import ServerCapabilitiesBuilder
 from pygls.lsp import (
-    CompletionItem,
-    CompletionList,
-    CompletionOptions,
-    CompletionParams,
     types,
+    LSP_METHODS_MAP
 )
 from pygls.lsp.methods import *
 from pygls.lsp.types import window as window_types
@@ -23,14 +20,21 @@ from pygls.workspace import Workspace
 
 logger = logging.getLogger(__name__)
 
-CACHE_ROOT = os.path.expanduser("~/.cache/gtags")
-os.makedirs(CACHE_ROOT, exist_ok=True)
 
+def get_cache_dir(project_root: str, gtags_provider: str):
+    if gtags_provider == 'tagls':
+        cache_root = os.path.expanduser("~/.cache/gtags")
+        project_root = project_root.replace(os.path.sep, "_")
+    elif gtags_provider == 'leaderf':
+        cache_root = os.path.expanduser("~/.LfCache/gtags")
+        project_root = project_root.replace(os.path.sep, "_")
+    else:
+        raise ValueError(f"Unknown gtags_provider {gtags_provider}")
 
-def get_cache_dir(project_root: str):
-    project_root = project_root.replace(os.path.sep, "_")
-    cache_dir = os.path.join(CACHE_ROOT, project_root)
-    os.makedirs(cache_dir, exist_ok=True)
+    cache_dir = os.path.join(cache_root, project_root)
+
+    if gtags_provider == 'tagls':
+        os.makedirs(cache_dir, exist_ok=True)
     return cache_dir
 
 
@@ -143,7 +147,34 @@ class TagLSProtocol(LanguageServerProtocol):
 server = LanguageServer(protocol_cls=TagLSProtocol)
 
 
-@server.feature(WORKSPACE_SYMBOL)
+def tagls_feature(method_name: str, custom_types: Optional[Tuple[Any, Any, Any]]=None):
+    def deco(f):
+        async def f_if_register_official_methods(ls: LanguageServer, *args, **kwargs):
+            if register_official_methods != 'all' and method_name not in register_official_methods:
+                return
+            return await f(ls, *args, **kwargs)
+        server.feature(method_name)(f_if_register_official_methods)
+
+        nonlocal custom_types
+        if custom_types is None:
+            custom_types = LSP_METHODS_MAP[method_name]
+        server.feature(f"$tagls/{method_name}", types=custom_types)(f)
+        return f
+
+    return deco
+
+
+def only_available_on_tagls_provider(f):
+    async def decoed_f(ls: LanguageServer, *args, **kwargs):
+        show_message_log(gtags_provider)
+        if gtags_provider != 'tagls':
+            return
+        return await f(ls, *args, **kwargs)
+
+    return decoed_f
+
+
+@tagls_feature(WORKSPACE_SYMBOL)
 async def workspace_symbol(
     ls: LanguageServer, params: types.WorkspaceSymbolParams
 ) -> List[types.SymbolInformation]:
@@ -160,7 +191,7 @@ async def workspace_symbol(
     ]
 
 
-@server.feature(DOCUMENT_SYMBOL)
+@tagls_feature(DOCUMENT_SYMBOL)
 async def document_symbol(
     ls: LanguageServer, params: types.DocumentSymbolParams
 ) -> List[types.SymbolInformation]:
@@ -177,22 +208,14 @@ async def document_symbol(
     ]
 
 
-@server.feature(DEFINITION)
-@server.feature("$tagls/definition", types=(
-        None, types.DefinitionParams, List[types.Location]
-    ))
+@tagls_feature(DEFINITION)
 async def definition(
     ls: LanguageServer, params: types.DefinitionParams
 ) -> List[types.Location]:
     return await get_locations(ls, params, False)
 
 
-@server.feature(REFERENCES)
-@server.feature("$tagls/references", types=(
-        None,
-        types.TextDocumentPositionParams,
-        List[types.Location],
-    ))
+@tagls_feature(REFERENCES, custom_types=(None, types.TextDocumentPositionParams, Optional[List[types.Location]]))
 async def references(
     ls: LanguageServer, params: types.ReferenceParams
 ) -> List[types.Location]:
@@ -200,6 +223,7 @@ async def references(
 
 
 @server.feature(TEXT_DOCUMENT_DID_SAVE)
+@only_available_on_tagls_provider
 async def did_save(ls: LanguageServer, params: types.DidSaveTextDocumentParams):
     uri = params.text_document.uri
     doc = ls.workspace.get_document(uri)
@@ -243,24 +267,36 @@ async def initialize(ls: LanguageServer, params: types.InitializeParams):
     result = builtin_initialize(ls.lsp, params)
     root_path = ls.workspace.root_path
     assert root_path is not None
-    global cache_dir
-    cache_dir = get_cache_dir(root_path)
-    show_message_log(f"cache_dir: {cache_dir}")
-    need_generate = False
-    if os.path.exists(os.path.join(cache_dir, "GTAGS")):
-        _, stderr = await run_global("-u", root_path, check_return_code=False)
-        if b"seems corrupted" in stderr:
-            ls.show_message(
-                "gtags files are corrupted. Generating again...",
-                window_types.MessageType.Warning,
-            )
-            need_generate = True
+    if isinstance(params.initialization_options, dict):
+        init_options: Dict[str, Any] = params.initialization_options
+        show_message_log(f"initialization_options: {init_options}")
     else:
-        need_generate = True
-    if need_generate:
-        await spawn_shell(
-            cmd=f"gtags {cache_dir}", cwd=root_path,
-        )
+        raise ValueError(f"Wrong initialization_options {params.initialization_options}")
+    global gtags_provider
+    gtags_provider = init_options.get("gtags_provider", "tagls")
+    show_message_log(f"gtags_provider: {gtags_provider}")
+    global cache_dir
+    cache_dir = get_cache_dir(root_path, gtags_provider)
+    show_message_log(f"cache_dir: {cache_dir}")
+    global register_official_methods
+    register_official_methods = init_options.get("register_official_methods", "all")
+
+    if gtags_provider == 'tagls':
+        need_generate = False
+        if os.path.exists(os.path.join(cache_dir, "GTAGS")):
+            _, stderr = await run_global("-u", root_path, check_return_code=False)
+            if b"seems corrupted" in stderr:
+                ls.show_message(
+                    "gtags files are corrupted. Generating again...",
+                    window_types.MessageType.Warning,
+                )
+                need_generate = True
+        else:
+            need_generate = True
+        if need_generate:
+            await spawn_shell(
+                cmd=f"gtags {cache_dir}", cwd=root_path,
+            )
     return result
 
 
