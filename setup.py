@@ -12,7 +12,7 @@ setup(
     package_data={'': ['LICENSE']},
     license='Apache',
     install_requires=[
-        'pygls >= 0.11.2'
+        'pygls-tagls-custom == 0.0.1'
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
