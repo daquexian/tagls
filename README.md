@@ -58,7 +58,7 @@ endfunction
 
 function! CallbackForOfficalLSP(kind, err, resp)
   if a:err != v:null || a:resp != v:true
-    " NOTE: Wait https://github.com/neoclide/coc.nvim/pull/3563 to be merged or apply its changes manually
+    " NOTE: Please use the latest coc.nvim so that `CocLocationsAsync` supports callback
     call CocLocationsAsync('tagls', '$tagls/textDocument/' . a:kind, {err, resp -> CallbackForTagLS(a:kind, err, resp)})
   endif
 endfunction
