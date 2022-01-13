@@ -21,17 +21,30 @@ from pygls.workspace import Workspace
 logger = logging.getLogger(__name__)
 
 
-def get_cache_dir(project_root: str, gtags_provider: str):
+def get_cache_root(gtags_provider: str, custom_cache_root: Optional[str]) -> str:
+    if custom_cache_root:
+        cache_root = custom_cache_root
+    else:
+        if gtags_provider == 'tagls':
+            cache_root = "~/.cache/gtags"
+        elif gtags_provider == 'leaderf':
+            cache_root = "~/.LfCache/gtags"
+        else:
+            raise ValueError(f"Unknown gtags_provider {gtags_provider}")
+    return os.path.expanduser(cache_root)
+
+
+def get_cache_dir(project_root: str, gtags_provider: str, custom_cache_root: Optional[str]) -> str:
+    cache_root = get_cache_root(gtags_provider, custom_cache_root)
+
     if gtags_provider == 'tagls':
-        cache_root = os.path.expanduser("~/.cache/gtags")
-        project_root = project_root.replace(os.path.sep, "_")
+        filenameified_project_root = project_root.replace(os.path.sep, "_")
     elif gtags_provider == 'leaderf':
-        cache_root = os.path.expanduser("~/.LfCache/gtags")
-        project_root = project_root.replace(os.path.sep, "_")
+        filenameified_project_root = project_root.replace(os.path.sep, "_")
     else:
         raise ValueError(f"Unknown gtags_provider {gtags_provider}")
 
-    cache_dir = os.path.join(cache_root, project_root)
+    cache_dir = os.path.join(cache_root, filenameified_project_root)
 
     if gtags_provider == 'tagls':
         os.makedirs(cache_dir, exist_ok=True)
@@ -277,9 +290,11 @@ async def initialize(ls: LanguageServer, params: types.InitializeParams):
     global gtags_provider
     gtags_provider = init_options.get("gtags_provider", "tagls")
     show_message_log(f"gtags_provider: {gtags_provider}")
+    custom_cache_root = init_options.get("cache_dir", None)
+    show_message_log(f"custom_cache_root: {custom_cache_root}")
     global cache_dir
-    cache_dir = get_cache_dir(root_path, gtags_provider)
-    show_message_log(f"cache_dir: {cache_dir}")
+    cache_dir = get_cache_dir(root_path, gtags_provider, custom_cache_root)
+    show_message_log(f"project_cache_dir: {cache_dir}")
     global register_official_methods
     register_official_methods = init_options.get("register_official_methods", "all")
 
