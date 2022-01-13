@@ -35,6 +35,8 @@ Install tagls by `pip3 install tagls` and register it in your code editor. For e
         // "register_official_methods": []
         // Add the following line for LeaderF support (https://github.com/daquexian/tagls/issues/1)
         // "gtags_provider": "leaderf"
+        // Add the following line for custom cache dir
+        // "cache_dir": "/tmp/gtags"
       },
       "settings": {}
     }
