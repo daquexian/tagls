@@ -71,7 +71,7 @@ nmap <silent> <leader>jf :call GoToWithTagLSFallback('jumpReferences', 'referenc
 
 ### Supported
 
-- [x] initialize (Auto create/update gtags tag files when opening a project in the editor)
+- [x] initialize (auto create/update gtags tag files when opening a project in the editor)
 - [x] textDocument/didSave (auto update gtags tag files when a file is updated)
 - [x] textDocument/definition
 - [x] textDocument/references
