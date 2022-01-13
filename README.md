@@ -43,11 +43,30 @@ Install tagls by `pip3 install tagls` and register it in your code editor. For e
 
 #### Custom LSP methods
 
-Tagls provides custom LSP methods beginning with `$tagls/`, so if you want, you can keep tagls from registering official LSP methods and communicate with tagls only by these custom methods. For example, in coc.nvim, after setting `register_official_methods` to `[]`, add the following lines in your .vimrc:
+Tagls provides custom LSP methods beginning with `$tagls/`, so if you want, you can keep tagls from registering official LSP methods and communicate with tagls only by these custom methods. For example, if you want to **use tagls only when all other languages servers cannot give any results**, you can set `register_official_methods` to `[]` (also see above section), and add the following lines in your .vimrc (also see the following "NOTE"):
 
 ```vim
-nnoremap <silent> <leader>kd :call CocLocations('tagls','$tagls/textDocument/definition')<cr>
-nnoremap <silent> <leader>kf :call CocLocations('tagls','$tagls/textDocument/references')<cr>
+function! CallbackForTagLS(kind, err, resp)
+  if a:err != v:null || a:resp != v:true
+    echohl WarningMsg | echom "[coc.nvim] " . kind . " not found by tagls" | echohl None
+  else
+    echom "[coc.nvim] use tagls as callback"
+  endif
+endfunction
+
+function! CallbackForOfficalLSP(kind, err, resp)
+  if a:err != v:null || a:resp != v:true
+    # NOTE: Wait https://github.com/neoclide/coc.nvim/pull/3563 to be merged or apply its changes manually
+    call CocLocationsAsync('tagls', '$tagls/textDocument/' . a:kind, {err, resp -> CallbackForTagLS(a:kind, err, resp)})
+  endif
+endfunction
+
+function! GoToWithTagLSFallback(action, kind)
+  call CocActionAsync(a:action, {err, resp -> CallbackForOfficalLSP(a:kind, err, resp)})
+endfunction
+
+nmap <silent> <leader>jd :call GoToWithTagLSFallback('jumpDefinition', 'definition')<cr>
+nmap <silent> <leader>jf :call GoToWithTagLSFallback('jumpReferences', 'references')<cr>
 ```
 
 ### Supported
