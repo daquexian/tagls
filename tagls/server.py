@@ -124,6 +124,8 @@ async def get_locations(
 ) -> List[types.Location]:
     doc = ls.workspace.get_document(params.text_document.uri)
     word = doc.word_at_position(params.position)
+    if len(word) == 0:
+        return []
     if references:
         args = f"--result=cscope -ar {word}"
     else:
