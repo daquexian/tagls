@@ -43,6 +43,19 @@ Install tagls by `pip3 install tagls` and register it in your code editor. For e
   }
 ```
 
+Or if you use Emacs `lsp-mode`:
+
+```emacs-lisp
+  (lsp-register-client
+   (make-lsp-client :new-connection
+                    (lsp-stdio-connection '("python3" "-m" "tagls"))
+                    :server-id 'tagls
+                    :activation-fn (lsp-activate-on "c" "cpp" "python")
+                    ;; provide initialization options:
+                    ;;   :initialization-options '((cache_dir . "/tmp/gtags"))
+                    ))
+```
+
 #### Custom LSP methods
 
 Tagls provides custom LSP methods beginning with `$tagls/`, so if you want, you can keep tagls from registering official LSP methods and communicate with tagls only by these custom methods. For example, if you want to **use tagls only when all other languages servers cannot give any results**, you can set `register_official_methods` to `[]` (also see above section), and add the following lines in your .vimrc (also see the following "NOTE"):

@@ -282,11 +282,12 @@ async def initialize(ls: LanguageServer, params: types.InitializeParams):
     result = builtin_initialize(ls.lsp, params)
     root_path = ls.workspace.root_path
     assert root_path is not None
+    init_options: Dict[str, Any] = {}
     if isinstance(params.initialization_options, dict):
-        init_options: Dict[str, Any] = params.initialization_options
-        show_message_log(f"initialization_options: {init_options}")
+        init_options = params.initialization_options
+        show_message_log(f"Initialization_options: {init_options}")
     else:
-        raise ValueError(f"Wrong initialization_options {params.initialization_options}")
+        show_message_log(f"No initialization_options found, using default values")
     global gtags_provider
     gtags_provider = init_options.get("gtags_provider", "tagls")
     show_message_log(f"gtags_provider: {gtags_provider}")
@@ -319,5 +320,5 @@ async def initialize(ls: LanguageServer, params: types.InitializeParams):
 
 @server.feature(INITIALIZED)
 def initialized(ls: LanguageServer, params: types.InitializedParams):
-    show_message_log("initialized")
+    show_message_log("Initialized")
 
